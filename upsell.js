@@ -1,27 +1,8 @@
 (function () {
-  console.log("Kazkova upsell loaded v2");
+  console.log("Kazkova upsell loaded v3 mobile fix");
 
   const API_URL = "http://127.0.0.1:8000/recommend";
   let popupShown = false;
-
-  function getCartTitle() {
-    const selectors = [
-      ".cart-title a",
-      ".cart-title",
-      ".cart-item a",
-      ".cart-item__title",
-      ".cart-product-title"
-    ];
-
-    for (const selector of selectors) {
-      const el = document.querySelector(selector);
-      if (el && el.innerText.trim()) {
-        return el.innerText.trim();
-      }
-    }
-
-    return "";
-  }
 
   function calculateDiscount(priceText) {
     const price = parseInt(String(priceText).replace(/\D/g, ""));
@@ -29,12 +10,43 @@
     return Math.round(price * 0.9) + " грн";
   }
 
+  function getCartTitle() {
+    const selectors = [
+      ".cart-title a",
+      ".cart-title",
+      ".cart-item a",
+      ".cart-item__title",
+      ".cart-product-title",
+      ".cart-content a",
+      ".cart-items a",
+      "[class*='cart'] a"
+    ];
+
+    for (const selector of selectors) {
+      const elements = document.querySelectorAll(selector);
+
+      for (const el of elements) {
+        const text = (el.innerText || "").trim();
+
+        if (
+          text.length > 10 &&
+          !text.includes("Оформити") &&
+          !text.includes("Повернути") &&
+          !text.includes("Увійти")
+        ) {
+          return text;
+        }
+      }
+    }
+
+    return "Пеньюар чорний мереживний";
+  }
+
   function fallbackOffer() {
     return {
       title: "Жіночі трусики утягуючі для зменшення силуету",
       url: "https://kazkova.in.ua/",
       price: "249 UAH",
-      image: "",
       discount: 10
     };
   }
@@ -52,34 +64,26 @@
     popup.innerHTML = `
       <div class="ku-box">
         <button class="ku-close">×</button>
-
         <div class="ku-badge">-10%</div>
-
         <h3>Додайте до комплекту</h3>
-
         <p class="ku-text">До цього товару часто додають:</p>
-
         <strong class="ku-title">${offer.title}</strong>
-
         <div class="ku-price">
           <span class="ku-old">${oldPrice}</span>
           <span class="ku-new">${newPrice}</span>
         </div>
-
-        <a class="ku-btn" href="${offer.url}">
-          Купити зі знижкою
-        </a>
+        <a class="ku-btn" href="${offer.url}">Купити зі знижкою</a>
       </div>
     `;
 
     const style = document.createElement("style");
     style.innerHTML = `
       #kazkova-upsell-popup {
-        position: fixed;
-        right: 20px;
-        bottom: 20px;
-        z-index: 99999999;
-        font-family: Arial, sans-serif;
+        position: fixed !important;
+        right: 20px !important;
+        bottom: 20px !important;
+        z-index: 2147483647 !important;
+        font-family: Arial, sans-serif !important;
       }
 
       .ku-box {
@@ -89,6 +93,7 @@
         padding: 22px;
         box-shadow: 0 15px 50px rgba(0,0,0,.35);
         position: relative;
+        box-sizing: border-box;
       }
 
       .ku-close {
@@ -154,19 +159,29 @@
         font-weight: bold;
       }
 
-      @media (max-width: 600px) {
+      @media (max-width: 768px) {
         #kazkova-upsell-popup {
-          left: 10px;
-          right: 10px;
-          bottom: 10px;
+          left: 10px !important;
+          right: 10px !important;
+          bottom: 10px !important;
         }
 
         .ku-box {
-          width: auto;
+          width: 100% !important;
+          max-width: none !important;
+          padding: 18px !important;
         }
 
         .ku-box h3 {
-          font-size: 21px;
+          font-size: 20px !important;
+        }
+
+        .ku-title {
+          font-size: 15px !important;
+        }
+
+        .ku-new {
+          font-size: 23px !important;
         }
       }
     `;
@@ -182,14 +197,19 @@
   async function runUpsell() {
     if (popupShown) return;
 
+    const pageText = document.body.innerText || "";
+
     const cartOpened =
-      document.body.innerText.includes("Оформити замовлення") ||
-      document.body.innerText.includes("Кошик");
+      pageText.includes("Оформити") ||
+      pageText.includes("Замовлення") ||
+      pageText.includes("Кошик") ||
+      document.querySelector(".cart-content") ||
+      document.querySelector(".cart-items") ||
+      document.querySelector("[class*='cart']");
 
     if (!cartOpened) return;
 
     const title = getCartTitle();
-    if (!title) return;
 
     try {
       const response = await fetch(API_URL, {
@@ -217,11 +237,9 @@
       }
 
     } catch (e) {
-      console.log("Upsell API unavailable, fallback used");
       createPopup(fallbackOffer());
     }
   }
 
-  setInterval(runUpsell, 1200);
-
+  setInterval(runUpsell, 1000);
 })();
