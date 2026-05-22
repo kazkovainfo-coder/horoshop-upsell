@@ -1,409 +1,227 @@
 (function () {
+  console.log("Kazkova upsell loaded v2");
 
-    console.log("Upsell system loaded");
+  const API_URL = "http://127.0.0.1:8000/recommend";
+  let popupShown = false;
 
-    let popupShown = false;
+  function getCartTitle() {
+    const selectors = [
+      ".cart-title a",
+      ".cart-title",
+      ".cart-item a",
+      ".cart-item__title",
+      ".cart-product-title"
+    ];
 
-    // ============================================
-    // CREATE POPUP
-    // ============================================
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (el && el.innerText.trim()) {
+        return el.innerText.trim();
+      }
+    }
 
-    function createPopup(product) {
+    return "";
+  }
 
-        if (document.getElementById("upsell-popup")) {
-            return;
-        }
+  function calculateDiscount(priceText) {
+    const price = parseInt(String(priceText).replace(/\D/g, ""));
+    if (!price) return priceText;
+    return Math.round(price * 0.9) + " грн";
+  }
 
-        const popup = document.createElement("div");
+  function fallbackOffer() {
+    return {
+      title: "Жіночі трусики утягуючі для зменшення силуету",
+      url: "https://kazkova.in.ua/",
+      price: "249 UAH",
+      image: "",
+      discount: 10
+    };
+  }
 
-        popup.id = "upsell-popup";
+  function createPopup(offer) {
+    if (popupShown) return;
+    popupShown = true;
 
-        popup.innerHTML = `
-        
-        <div id="upsell-overlay"></div>
+    const oldPrice = offer.price || "";
+    const newPrice = calculateDiscount(oldPrice);
 
-        <div id="upsell-box">
+    const popup = document.createElement("div");
+    popup.id = "kazkova-upsell-popup";
 
-            <button id="upsell-close">×</button>
+    popup.innerHTML = `
+      <div class="ku-box">
+        <button class="ku-close">×</button>
 
-            <div id="upsell-content">
+        <div class="ku-badge">-10%</div>
 
-                <div id="upsell-image-wrap">
-                    <img 
-                        src="${product.image || ''}" 
-                        alt="${product.title}"
-                        id="upsell-image"
-                    >
-                </div>
+        <h3>Додайте до комплекту</h3>
 
-                <div id="upsell-info">
+        <p class="ku-text">До цього товару часто додають:</p>
 
-                    <div id="upsell-badge">
-                        -10%
-                    </div>
+        <strong class="ku-title">${offer.title}</strong>
 
-                    <h3 id="upsell-title">
-                        Додайте до комплекту
-                    </h3>
-
-                    <p id="upsell-subtitle">
-                        До цього товару часто додають:
-                    </p>
-
-                    <div id="upsell-product-title">
-                        ${product.title}
-                    </div>
-
-                    <div id="upsell-price-wrap">
-
-                        <div id="upsell-old-price">
-                            ${product.price}
-                        </div>
-
-                        <div id="upsell-new-price">
-                            ${calculateDiscount(product.price)}
-                        </div>
-
-                    </div>
-
-                    <div id="upsell-buttons">
-
-                        <a 
-                            href="${product.url}" 
-                            id="upsell-view-btn"
-                        >
-                            Переглянути товар
-                        </a>
-
-                    </div>
-
-                </div>
-
-            </div>
-
+        <div class="ku-price">
+          <span class="ku-old">${oldPrice}</span>
+          <span class="ku-new">${newPrice}</span>
         </div>
-        `;
 
-        document.body.appendChild(popup);
+        <a class="ku-btn" href="${offer.url}">
+          Купити зі знижкою
+        </a>
+      </div>
+    `;
 
-        // ============================================
-        // CLOSE
-        // ============================================
+    const style = document.createElement("style");
+    style.innerHTML = `
+      #kazkova-upsell-popup {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 99999999;
+        font-family: Arial, sans-serif;
+      }
 
-        document
-            .getElementById("upsell-close")
-            .addEventListener("click", () => {
-                popup.remove();
-            });
+      .ku-box {
+        width: 340px;
+        background: #fff;
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: 0 15px 50px rgba(0,0,0,.35);
+        position: relative;
+      }
 
-        document
-            .getElementById("upsell-overlay")
-            .addEventListener("click", () => {
-                popup.remove();
-            });
+      .ku-close {
+        position: absolute;
+        right: 12px;
+        top: 10px;
+        border: none;
+        background: none;
+        font-size: 24px;
+        cursor: pointer;
+      }
 
-        // ============================================
-        // STYLES
-        // ============================================
+      .ku-badge {
+        display: inline-block;
+        background: #0a9f38;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
 
-        const style = document.createElement("style");
+      .ku-box h3 {
+        margin: 5px 0 10px;
+        font-size: 24px;
+      }
 
-        style.innerHTML = `
+      .ku-text {
+        color: #666;
+        margin: 0 0 10px;
+      }
 
-        #upsell-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.45);
-            z-index: 99998;
-            backdrop-filter: blur(2px);
+      .ku-title {
+        display: block;
+        font-size: 16px;
+        margin-bottom: 15px;
+      }
+
+      .ku-price {
+        margin-bottom: 18px;
+      }
+
+      .ku-old {
+        text-decoration: line-through;
+        color: #999;
+        margin-right: 10px;
+      }
+
+      .ku-new {
+        color: #e10000;
+        font-size: 26px;
+        font-weight: bold;
+      }
+
+      .ku-btn {
+        display: block;
+        background: #000;
+        color: #fff;
+        text-align: center;
+        padding: 14px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: bold;
+      }
+
+      @media (max-width: 600px) {
+        #kazkova-upsell-popup {
+          left: 10px;
+          right: 10px;
+          bottom: 10px;
         }
 
-        #upsell-box {
-            position: fixed;
-            right: 25px;
-            bottom: 25px;
-            width: 430px;
-            background: white;
-            border-radius: 22px;
-            z-index: 99999;
-            overflow: hidden;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.25);
-            animation: upsellShow .35s ease;
-            font-family: Arial, sans-serif;
+        .ku-box {
+          width: auto;
         }
 
-        @keyframes upsellShow {
-            from {
-                transform: translateY(40px);
-                opacity: 0;
+        .ku-box h3 {
+          font-size: 21px;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+    document.body.appendChild(popup);
+
+    popup.querySelector(".ku-close").onclick = function () {
+      popup.remove();
+    };
+  }
+
+  async function runUpsell() {
+    if (popupShown) return;
+
+    const cartOpened =
+      document.body.innerText.includes("Оформити замовлення") ||
+      document.body.innerText.includes("Кошик");
+
+    if (!cartOpened) return;
+
+    const title = getCartTitle();
+    if (!title) return;
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          cart_items: [
+            {
+              product_id: "current_product",
+              title: title,
+              category: "auto"
             }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
+          ]
+        })
+      });
 
-        #upsell-content {
-            display: flex;
-            gap: 18px;
-            padding: 22px;
-        }
+      const data = await response.json();
 
-        #upsell-image-wrap {
-            width: 140px;
-            min-width: 140px;
-        }
+      if (data.offer) {
+        createPopup(data.offer);
+      } else {
+        createPopup(fallbackOffer());
+      }
 
-        #upsell-image {
-            width: 100%;
-            border-radius: 14px;
-            object-fit: cover;
-        }
-
-        #upsell-info {
-            flex: 1;
-        }
-
-        #upsell-close {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            border: none;
-            background: transparent;
-            font-size: 26px;
-            cursor: pointer;
-            color: #777;
-        }
-
-        #upsell-badge {
-            display: inline-block;
-            background: #0c9b38;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 999px;
-            font-size: 13px;
-            margin-bottom: 12px;
-            font-weight: bold;
-        }
-
-        #upsell-title {
-            margin: 0;
-            font-size: 24px;
-            line-height: 1.2;
-        }
-
-        #upsell-subtitle {
-            color: #666;
-            margin-top: 8px;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        #upsell-product-title {
-            font-size: 16px;
-            font-weight: bold;
-            line-height: 1.4;
-            margin-bottom: 16px;
-        }
-
-        #upsell-price-wrap {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        #upsell-old-price {
-            text-decoration: line-through;
-            color: #999;
-            font-size: 16px;
-        }
-
-        #upsell-new-price {
-            color: #e10000;
-            font-size: 28px;
-            font-weight: bold;
-        }
-
-        #upsell-view-btn {
-            display: block;
-            background: black;
-            color: white;
-            text-align: center;
-            padding: 14px;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: .2s;
-        }
-
-        #upsell-view-btn:hover {
-            opacity: .85;
-        }
-
-        @media(max-width: 600px) {
-
-            #upsell-box {
-                width: calc(100% - 20px);
-                right: 10px;
-                left: 10px;
-                bottom: 10px;
-            }
-
-            #upsell-content {
-                flex-direction: column;
-            }
-
-            #upsell-image-wrap {
-                width: 100%;
-            }
-
-            #upsell-title {
-                font-size: 21px;
-            }
-
-        }
-
-        `;
-
-        document.head.appendChild(style);
+    } catch (e) {
+      console.log("Upsell API unavailable, fallback used");
+      createPopup(fallbackOffer());
     }
+  }
 
-    // ============================================
-    // CALCULATE DISCOUNT
-    // ============================================
-
-    function calculateDiscount(priceText) {
-
-        try {
-
-            const number = parseInt(priceText);
-
-            const discounted = Math.round(number * 0.9);
-
-            return discounted + " грн";
-
-        } catch {
-
-            return priceText;
-
-        }
-
-    }
-
-    // ============================================
-    // GET PRODUCT TITLE
-    // ============================================
-
-    function getCartProductTitle() {
-
-        const selectors = [
-            ".cart-title a",
-            ".cart-title",
-            ".cart-product-title",
-            ".cart-item__title",
-            ".popup-cart__name"
-        ];
-
-        for (const selector of selectors) {
-
-            const element = document.querySelector(selector);
-
-            if (element) {
-
-                return element.innerText.trim();
-
-            }
-
-        }
-
-        return null;
-    }
-
-    // ============================================
-    // CALL API
-    // ============================================
-
-    async function loadRecommendation() {
-
-        if (popupShown) {
-            return;
-        }
-
-        const title = getCartProductTitle();
-
-        if (!title) {
-            return;
-        }
-
-        popupShown = true;
-
-        try {
-
-            const response = await fetch(
-                "http://127.0.0.1:8000/recommend",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        cart_items: [
-                            {
-                                product_id: "current_product",
-                                title: title,
-                                category: "auto"
-                            }
-                        ]
-                    })
-                }
-            );
-
-            const data = await response.json();
-
-            if (!data.offer) {
-                return;
-            }
-
-            createPopup({
-                title: data.offer.title,
-                url: data.offer.url,
-                price: data.offer.price,
-                image: ""
-            });
-
-        } catch (error) {
-
-            console.error("Upsell error:", error);
-
-        }
-
-    }
-
-    // ============================================
-    // OBSERVE CART
-    // ============================================
-
-    const observer = new MutationObserver(() => {
-
-        const cartVisible =
-            document.body.innerText.includes("Оформити замовлення");
-
-        if (cartVisible) {
-
-            setTimeout(() => {
-
-                loadRecommendation();
-
-            }, 1200);
-
-        }
-
-    });
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
+  setInterval(runUpsell, 1200);
 
 })();
