@@ -58,26 +58,26 @@ function getDatePlusDays(days) {
   };
 }
 
-async function clickFirstAvailable(locator, names) {
-  for (const name of names) {
-    try {
-      const button = locator.getByRole("button", { name });
-      if (await button.count()) {
-        await button.first().click();
-        return true;
-      }
-    } catch (e) {}
+async function clickAddCouponButton(frameLocator) {
+  let addButton = frameLocator.locator('a:has-text("Додати")').first();
 
-    try {
-      const link = locator.getByRole("link", { name });
-      if (await link.count()) {
-        await link.first().click();
-        return true;
-      }
-    } catch (e) {}
+  if (!(await addButton.count())) {
+    addButton = frameLocator.locator('button:has-text("Додати")').first();
   }
 
-  return false;
+  if (!(await addButton.count())) {
+    addButton = frameLocator.locator('[href*="create"]').first();
+  }
+
+  if (!(await addButton.count())) {
+    addButton = frameLocator.locator('.btn-primary').first();
+  }
+
+  if (!(await addButton.count())) {
+    throw new Error("Не знайдено кнопку/посилання 'Додати' для створення купона");
+  }
+
+  await addButton.click();
 }
 
 async function generateCoupon() {
@@ -155,11 +155,7 @@ async function generateCoupon() {
 
     console.log("STEP 6 CLICK ADD COUPON");
 
-    const addClicked = await clickFirstAvailable(frameLocator, ["Додати", "Добавить", "Add"]);
-
-    if (!addClicked) {
-      throw new Error("Не знайдено кнопку/посилання 'Додати' для створення купона");
-    }
+    await clickAddCouponButton(frameLocator);
 
     await page.waitForTimeout(3000);
 
