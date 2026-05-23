@@ -113,7 +113,7 @@ async function generateCoupon() {
       timeout: 90000
     });
 
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1200);
 
     console.error("STEP 3 CHECK LOGIN FORM");
 
@@ -143,7 +143,7 @@ async function generateCoupon() {
 
       await loginButton.click();
 
-      await page.waitForTimeout(7000);
+      await page.waitForTimeout(3500);
     }
 
     console.error("STEP 4 OPEN DISCOUNTS", config.HOROSHOP_DOMAIN + "/edit/discounts/codes");
@@ -153,33 +153,17 @@ async function generateCoupon() {
       timeout: 90000
     });
 
-    await page.waitForTimeout(7000);
+    await page.waitForTimeout(3000);
 
     console.error("STEP 5 FIND IFRAME");
 
     const frameLocator = page.locator("#app iframe").contentFrame();
 
-    console.error("STEP 6 DEBUG CURRENT PAGE");
-
-    try {
-      console.error("DEBUG PAGE URL", page.url());
-      console.error("DEBUG PAGE TITLE", await page.title());
-      console.error("DEBUG PAGE TEXT", (await page.locator("body").innerText({ timeout: 5000 })).slice(0, 3000));
-    } catch (e) {
-      console.error("DEBUG PAGE READ ERROR", String(e && e.message ? e.message : e));
-    }
-
-    try {
-      console.error("DEBUG FRAME TEXT", (await frameLocator.locator("body").innerText({ timeout: 5000 })).slice(0, 3000));
-    } catch (e) {
-      console.error("DEBUG FRAME READ ERROR", String(e && e.message ? e.message : e));
-    }
-
     console.error("STEP 6 CLICK ADD COUPON");
 
     await clickAddCouponButton(frameLocator);
 
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1200);
 
     console.error("STEP 7 SELECT COUPON TYPE");
 
@@ -245,13 +229,13 @@ async function generateCoupon() {
 
     await frameLocator.getByRole("button", { name: "Зберегти та вийти" }).click();
 
-    await page.waitForTimeout(6000);
+    await page.waitForTimeout(3000);
 
     if (await frameLocator.locator('input[name="names[code]"]').count()) {
       try {
         await frameLocator.locator('input[name="names[code]"]').fill(couponCode);
         await frameLocator.getByRole("link", { name: "Зберегти та вийти" }).click();
-        await page.waitForTimeout(4000);
+        await page.waitForTimeout(2000);
       } catch (e) {}
     }
 
@@ -260,12 +244,12 @@ async function generateCoupon() {
     let finalCoupon = couponCode;
 
     try {
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(1200);
 
       if (await frameLocator.locator("a.control_edit").count()) {
         await frameLocator.locator("a.control_edit").first().click();
 
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(1200);
 
         if (await frameLocator.locator('input[name="names[code]"]').count()) {
           const realCoupon = await frameLocator.locator('input[name="names[code]"]').inputValue();
