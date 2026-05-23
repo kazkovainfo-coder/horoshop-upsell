@@ -117,16 +117,31 @@ async function generateCoupon() {
 
     console.log("STEP 3 CHECK LOGIN FORM");
 
-    if (await page.getByPlaceholder("Ел. пошта або логін").count()) {
+    const loginInput =
+      (await page.getByPlaceholder("Ел. пошта або логін").count())
+        ? page.getByPlaceholder("Ел. пошта або логін")
+        : page.locator('input[type="email"], input[type="text"], input[name*="login"], input[name*="email"]').first();
+
+    const passwordInput =
+      (await page.getByPlaceholder("Пароль").count())
+        ? page.getByPlaceholder("Пароль")
+        : page.locator('input[type="password"]').first();
+
+    if (await loginInput.count() && await passwordInput.count()) {
 
       console.log("STEP 3 LOGIN FORM FOUND");
 
-      await page.getByPlaceholder("Ел. пошта або логін").fill(String(config.HOROSHOP_LOGIN));
-      await page.getByPlaceholder("Пароль").fill(String(config.HOROSHOP_PASSWORD));
+      await loginInput.fill(String(config.HOROSHOP_LOGIN));
+      await passwordInput.fill(String(config.HOROSHOP_PASSWORD));
 
       console.log("STEP 3 CLICK LOGIN");
 
-      await page.getByRole("button", { name: "Увійти" }).click();
+      const loginButton =
+        (await page.getByRole("button", { name: "Увійти" }).count())
+          ? page.getByRole("button", { name: "Увійти" })
+          : page.locator('button:has-text("Log in"), button:has-text("Login"), button[type="submit"], input[type="submit"]').first();
+
+      await loginButton.click();
 
       await page.waitForTimeout(7000);
     }
