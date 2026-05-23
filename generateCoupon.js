@@ -144,6 +144,22 @@ async function generateCoupon() {
 
     const frameLocator = page.locator("#app iframe").contentFrame();
 
+    console.log("STEP 6 DEBUG CURRENT PAGE");
+
+    try {
+      console.log("DEBUG PAGE URL", page.url());
+      console.log("DEBUG PAGE TITLE", await page.title());
+      console.log("DEBUG PAGE TEXT", (await page.locator("body").innerText({ timeout: 5000 })).slice(0, 3000));
+    } catch (e) {
+      console.log("DEBUG PAGE READ ERROR", String(e && e.message ? e.message : e));
+    }
+
+    try {
+      console.log("DEBUG FRAME TEXT", (await frameLocator.locator("body").innerText({ timeout: 5000 })).slice(0, 3000));
+    } catch (e) {
+      console.log("DEBUG FRAME READ ERROR", String(e && e.message ? e.message : e));
+    }
+
     console.log("STEP 6 CLICK ADD COUPON");
 
     await clickAddCouponButton(frameLocator);
