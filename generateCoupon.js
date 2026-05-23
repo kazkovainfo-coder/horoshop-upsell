@@ -120,7 +120,8 @@ async function generateCoupon() {
     console.log("STEP 2 OPEN LOGIN", config.HOROSHOP_DOMAIN + "/edit/");
 
     await page.goto(config.HOROSHOP_DOMAIN + "/edit/", {
-      waitUntil: "domcontentloaded"
+      waitUntil: "commit",
+      timeout: 90000
     });
 
     await page.waitForTimeout(3000);
@@ -144,7 +145,8 @@ async function generateCoupon() {
     console.log("STEP 4 OPEN DISCOUNTS", config.HOROSHOP_DOMAIN + "/edit/discounts/codes");
 
     await page.goto(config.HOROSHOP_DOMAIN + "/edit/discounts/codes", {
-      waitUntil: "domcontentloaded"
+      waitUntil: "commit",
+      timeout: 90000
     });
 
     await page.waitForTimeout(7000);
