@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "generate-coupon": "node generateCoupon.js",
+    "install-browser": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
