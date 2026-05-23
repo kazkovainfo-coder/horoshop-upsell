@@ -58,39 +58,15 @@ function getDatePlusDays(days) {
   };
 }
 
-async function clickAddCouponButton(page, frameLocator) {
-  const scopes = [frameLocator, page];
+async function clickAddCouponButton(frameLocator) {
+  const addButton = frameLocator.locator('a.button.add.plus').first();
 
-  for (const scope of scopes) {
-    const selectors = [
-      'a:has-text("Додати")',
-      'button:has-text("Додати")',
-      'a:has-text("Добавить")',
-      'button:has-text("Добавить")',
-      'a:has-text("Add")',
-      'button:has-text("Add")',
-      '[href*="create"]',
-      '[href*="add"]',
-      '.btn-primary',
-      '.btn-success',
-      '.btn'
-    ];
+  await addButton.waitFor({
+    state: "visible",
+    timeout: 30000
+  });
 
-    for (const selector of selectors) {
-      try {
-        const button = scope.locator(selector).first();
-
-        if (await button.count()) {
-          await button.click({
-            timeout: 60000
-          });
-          return true;
-        }
-      } catch (e) {}
-    }
-  }
-
-  throw new Error("Не знайдено кнопку/посилання 'Додати' для створення купона");
+  await addButton.click();
 }
 
 async function generateCoupon() {
@@ -170,7 +146,7 @@ async function generateCoupon() {
 
     console.log("STEP 6 CLICK ADD COUPON");
 
-    await clickAddCouponButton(page, frameLocator);
+    await clickAddCouponButton(frameLocator);
 
     await page.waitForTimeout(3000);
 
