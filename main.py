@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 import random
+import subprocess
 
 app = FastAPI()
 
@@ -213,3 +214,35 @@ def recommend(data: CartRequest):
             "score": best_offer["score"]
         }
     }
+
+# =====================================================
+# GENERATE COUPON
+# =====================================================
+
+@app.get("/generate-coupon")
+def generate_coupon():
+    try:
+        result = subprocess.run(
+            ["node", "generateCoupon.js"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "error": result.stderr
+            }
+
+        return {
+            "success": True,
+            "message": "Coupon created",
+            "output": result.stdout
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
