@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 import random
-import subprocess
+import os
 
 app = FastAPI()
 
@@ -14,6 +14,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+PRODUCTS_FILE = "products.json"
+PAIRS_FILE = "purchase_pairs.json"
 
 # =====================================================
 # MODELS
@@ -27,13 +30,47 @@ class CartItem(BaseModel):
 class CartRequest(BaseModel):
     cart_items: list[CartItem]
 
+class PurchaseRequest(BaseModel):
+    cart_items: list[CartItem]
+
 # =====================================================
 # HOME
 # =====================================================
 
 @app.get("/")
 def home():
-    return {"status": "Upsell API працює"}
+    return {"status": "Smart upsell API працює"}
+
+# =====================================================
+# FILE HELPERS
+# =====================================================
+
+def load_products():
+    with open(PRODUCTS_FILE, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+def load_pairs():
+    if not os.path.exists(PAIRS_FILE):
+        return {}
+
+    try:
+        with open(PAIRS_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except:
+        return {}
+
+def save_pairs(pairs):
+    with open(PAIRS_FILE, "w", encoding="utf-8") as file:
+        json.dump(pairs, file, ensure_ascii=False, indent=2)
+
+def product_to_offer(product, source="ai"):
+    return {
+        "product_id": product["id"],
+        "title": product["title"],
+        "url": product["url"],
+        "price": product["price"],
+        "source": source
+    }
 
 # =====================================================
 # DETECT PRODUCT TYPE
@@ -137,7 +174,7 @@ def score_product(product, main_product, cart_ids):
 
     # expensive products lower priority
     try:
-        price = int(product["price"].split()[0])
+        price = int(str(product["price"]).split()[0])
 
         if price < 500:
             score += 10
@@ -151,17 +188,54 @@ def score_product(product, main_product, cart_ids):
     return score
 
 # =====================================================
-# API RECOMMEND
+# REAL PURCHASE RECOMMENDATION
 # =====================================================
 
-@app.post("/recommend")
-def recommend(data: CartRequest):
+def find_real_pair_offer(main_product_id, cart_ids, products):
 
-    with open("products.json", "r", encoding="utf-8") as file:
-        products = json.load(file)
+    pairs = load_pairs()
 
-    if not data.cart_items:
-        return {"offer": None}
+    if main_product_id not in pairs:
+        return None
+
+    product_by_id = {
+        str(product["id"]): product
+        for product in products
+    }
+
+    related = pairs.get(main_product_id, {})
+
+    sorted_related = sorted(
+        related.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    for related_id, count in sorted_related:
+
+        if related_id in cart_ids:
+            continue
+
+        product = product_by_id.get(str(related_id))
+
+        if not product:
+            continue
+
+        if not product.get("stock"):
+            continue
+
+        offer = product_to_offer(product, source="real_purchases")
+        offer["pair_count"] = count
+
+        return offer
+
+    return None
+
+# =====================================================
+# AI FALLBACK RECOMMENDATION
+# =====================================================
+
+def find_ai_offer(data, products):
 
     cart_ids = [
         item.product_id
@@ -189,12 +263,13 @@ def recommend(data: CartRequest):
 
         if product_score > 0:
 
-            product["score"] = product_score
+            product_copy = product.copy()
+            product_copy["score"] = product_score
 
-            scored_products.append(product)
+            scored_products.append(product_copy)
 
     if not scored_products:
-        return {"offer": None}
+        return None
 
     scored_products = sorted(
         scored_products,
@@ -204,45 +279,100 @@ def recommend(data: CartRequest):
 
     best_offer = scored_products[0]
 
-    return {
-        "offer": {
-            "product_id": best_offer["id"],
-            "title": best_offer["title"],
-            "url": best_offer["url"],
-            "price": best_offer["price"],
-            "discount": 10,
-            "score": best_offer["score"]
+    offer = product_to_offer(best_offer, source="ai_fallback")
+    offer["score"] = best_offer["score"]
+
+    return offer
+
+# =====================================================
+# API RECOMMEND
+# =====================================================
+
+@app.post("/recommend")
+def recommend(data: CartRequest):
+
+    products = load_products()
+
+    if not data.cart_items:
+        return {"offer": None}
+
+    cart_ids = [
+        item.product_id
+        for item in data.cart_items
+    ]
+
+    main_item = data.cart_items[0]
+
+    real_offer = find_real_pair_offer(
+        main_item.product_id,
+        cart_ids,
+        products
+    )
+
+    if real_offer:
+        return {
+            "offer": real_offer,
+            "message": "З цим товаром часто купують"
         }
+
+    ai_offer = find_ai_offer(data, products)
+
+    if ai_offer:
+        return {
+            "offer": ai_offer,
+            "message": "З цим товаром часто купують"
+        }
+
+    return {"offer": None}
+
+# =====================================================
+# TRACK PURCHASE PAIRS
+# =====================================================
+
+@app.post("/track-purchase")
+def track_purchase(data: PurchaseRequest):
+
+    if len(data.cart_items) < 2:
+        return {
+            "success": True,
+            "message": "Недостатньо товарів для запису пари"
+        }
+
+    pairs = load_pairs()
+
+    ids = [
+        item.product_id
+        for item in data.cart_items
+        if item.product_id
+    ]
+
+    for main_id in ids:
+
+        if main_id not in pairs:
+            pairs[main_id] = {}
+
+        for related_id in ids:
+
+            if related_id == main_id:
+                continue
+
+            if related_id not in pairs[main_id]:
+                pairs[main_id][related_id] = 0
+
+            pairs[main_id][related_id] += 1
+
+    save_pairs(pairs)
+
+    return {
+        "success": True,
+        "message": "Пари товарів збережені",
+        "items_count": len(ids)
     }
 
 # =====================================================
-# GENERATE COUPON
+# DEBUG PAIRS
 # =====================================================
 
-@app.get("/generate-coupon")
-def generate_coupon():
-    try:
-        result = subprocess.run(
-            ["node", "generateCoupon.js"],
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-
-        if result.returncode != 0:
-            return {
-                "success": False,
-                "error": result.stderr
-            }
-
-        return {
-            "success": True,
-            "message": "Coupon created",
-            "output": result.stdout
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+@app.get("/purchase-pairs")
+def purchase_pairs():
+    return load_pairs()
