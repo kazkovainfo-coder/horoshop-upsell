@@ -58,6 +58,28 @@ function getDatePlusDays(days) {
   };
 }
 
+async function clickFirstAvailable(locator, names) {
+  for (const name of names) {
+    try {
+      const button = locator.getByRole("button", { name });
+      if (await button.count()) {
+        await button.first().click();
+        return true;
+      }
+    } catch (e) {}
+
+    try {
+      const link = locator.getByRole("link", { name });
+      if (await link.count()) {
+        await link.first().click();
+        return true;
+      }
+    } catch (e) {}
+  }
+
+  return false;
+}
+
 async function generateCoupon() {
 
   console.log("STEP 0 START GENERATE COUPON");
@@ -133,7 +155,11 @@ async function generateCoupon() {
 
     console.log("STEP 6 CLICK ADD COUPON");
 
-    await frameLocator.getByRole("link", { name: "Додати" }).click();
+    const addClicked = await clickFirstAvailable(frameLocator, ["Додати", "Добавить", "Add"]);
+
+    if (!addClicked) {
+      throw new Error("Не знайдено кнопку/посилання 'Додати' для створення купона");
+    }
 
     await page.waitForTimeout(3000);
 
