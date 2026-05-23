@@ -3,42 +3,46 @@ const { chromium } = require("playwright");
 async function generateCoupon() {
 
   const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    headless: true
   });
 
-  const page = await browser.newPage();
+  const page = await browser.newPage({
+    viewport: {
+      width: 1440,
+      height: 900
+    }
+  });
 
-  await page.goto("https://kazkova.in.ua/admin");
-
-  await page.waitForTimeout(3000);
-
-  const loginInputs = await page.$$("input");
-
-  await loginInputs[0].fill(process.env.HOROSHOP_EMAIL);
-  await loginInputs[1].fill(process.env.HOROSHOP_PASSWORD);
-
-  await page.click("text=Увійти");
+  await page.goto("https://kazkova.in.ua/admin", {
+    waitUntil: "domcontentloaded"
+  });
 
   await page.waitForTimeout(5000);
 
-  await page.goto("https://kazkova.in.ua/edit/discounts/codes");
+  await page.getByPlaceholder("Ел. пошта або логін").fill(process.env.HOROSHOP_EMAIL);
+  await page.getByPlaceholder("Пароль").fill(process.env.HOROSHOP_PASSWORD);
 
-  await page.waitForTimeout(4000);
+  await page.getByText("Увійти", { exact: true }).click();
 
-  await page.click("text=Згенерувати сертифікати");
+  await page.waitForTimeout(7000);
+
+  await page.goto("https://kazkova.in.ua/edit/discounts/codes", {
+    waitUntil: "domcontentloaded"
+  });
+
+  await page.waitForTimeout(5000);
+
+  await page.getByText("Згенерувати сертифікати", { exact: true }).click();
 
   await page.waitForTimeout(3000);
 
-  await page.selectOption("select", {
+  await page.locator("select").first().selectOption({
     label: "Купон на знижку"
   });
 
-  const inputs = await page.$$("input");
-
-  await inputs[1].fill("10");
-  await inputs[2].fill("1");
-  await inputs[3].fill("1");
+  await page.locator("input:visible").nth(0).fill("10");
+  await page.locator("input:visible").nth(1).fill("1");
+  await page.locator("input:visible").nth(2).fill("1");
 
   const today = new Date();
 
@@ -48,9 +52,9 @@ async function generateCoupon() {
 
   const date = `${dd}.${mm}.${yyyy}`;
 
-  await inputs[4].fill(date);
+  await page.locator("input:visible").nth(3).fill(date);
 
-  await page.click("text=Зберегти");
+  await page.getByText("Зберегти", { exact: true }).click();
 
   await page.waitForTimeout(5000);
 
