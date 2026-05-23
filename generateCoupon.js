@@ -1,16 +1,34 @@
 const { chromium } = require("playwright");
 const fs = require("fs");
+const path = require("path");
 
-const config = JSON.parse(
-  fs.readFileSync("config.json", "utf8")
-);
+let config = {};
+
+try {
+  const configPath = path.join(__dirname, "config.json");
+
+  if (fs.existsSync(configPath)) {
+    config = JSON.parse(
+      fs.readFileSync(configPath, "utf8")
+    );
+  }
+} catch (e) {}
+
+config.HOROSHOP_DOMAIN =
+  process.env.HOROSHOP_DOMAIN || config.HOROSHOP_DOMAIN;
+
+config.HOROSHOP_LOGIN =
+  process.env.HOROSHOP_LOGIN || config.HOROSHOP_LOGIN;
+
+config.HOROSHOP_PASSWORD =
+  process.env.HOROSHOP_PASSWORD || config.HOROSHOP_PASSWORD;
 
 if (!config.HOROSHOP_DOMAIN || !config.HOROSHOP_LOGIN || !config.HOROSHOP_PASSWORD) {
   console.log(JSON.stringify({
     success: false,
     coupon: "",
     discount: 0,
-    error: "У config.json мають бути HOROSHOP_DOMAIN, HOROSHOP_LOGIN, HOROSHOP_PASSWORD"
+    error: "Потрібні HOROSHOP_DOMAIN, HOROSHOP_LOGIN, HOROSHOP_PASSWORD"
   }));
   process.exit(1);
 }
