@@ -5,10 +5,14 @@ export default {
 (function () {
 
   const API_URL = "https://horoshop-upsell.onrender.com/recommend";
+  const TRACK_URL = "https://horoshop-upsell.onrender.com/track-purchase";
 
   let popupShown = false;
+  let trackingSent = false;
 
-  function getCartTitle() {
+  function getCartItems() {
+
+    const items = [];
 
     const selectors = [
       ".cart-title a",
@@ -21,23 +25,29 @@ export default {
 
     for (const selector of selectors) {
 
-      const items = document.querySelectorAll(selector);
+      const elements = document.querySelectorAll(selector);
 
-      for (const el of items) {
+      for (const el of elements) {
 
-        const text = (el.innerText || "").trim();
+        const title = (el.innerText || "").trim();
 
         if (
-          text.length > 5 &&
-          !text.includes("Оформити") &&
-          !text.includes("Продовжити")
+          title.length > 5 &&
+          !title.includes("Оформити") &&
+          !title.includes("Продовжити")
         ) {
-          return text;
+
+          items.push({
+            product_id: title.toLowerCase().replace(/\s+/g, "_"),
+            title: title,
+            category: "auto"
+          });
+
         }
       }
     }
 
-    return "";
+    return items;
   }
 
   function createPopup(offer) {
@@ -63,7 +73,7 @@ export default {
 
       '<div class="ku-product">' +
 
-      '<img class="ku-image" src="' + (offer.image || "") + '">' +
+      '<img class="ku-image" src="' + (offer.image || "https://via.placeholder.com/90x90?text=Фото") + '">' +
 
       '<div class="ku-info">' +
 
@@ -216,9 +226,9 @@ export default {
       !text.includes("Продовжити покупки")
     ) return;
 
-    const title = getCartTitle();
+    const items = getCartItems();
 
-    if (!title) return;
+    if (!items.length) return;
 
     try {
 
@@ -228,11 +238,7 @@ export default {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          cart_items: [{
-            product_id: "current_product",
-            title: title,
-            category: "auto"
-          }]
+          cart_items: items
         })
       });
 
@@ -248,6 +254,53 @@ export default {
 
     }
   }
+
+  async function trackPurchase() {
+
+    if (trackingSent) return;
+
+    trackingSent = true;
+
+    const items = getCartItems();
+
+    if (items.length < 2) return;
+
+    try {
+
+      await fetch(TRACK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          cart_items: items
+        })
+      });
+
+      console.log("Purchase tracked");
+
+    } catch (e) {
+
+      console.log("Track purchase error", e);
+
+    }
+  }
+
+  document.addEventListener("click", function(event) {
+
+    const button = event.target.closest("button, a");
+
+    if (!button) return;
+
+    const text = (button.innerText || "").trim();
+
+    if (text.includes("Оформити замовлення")) {
+
+      trackPurchase();
+
+    }
+
+  });
 
   setInterval(checkCart, 1500);
 
