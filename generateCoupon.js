@@ -71,7 +71,7 @@ async function clickAddCouponButton(frameLocator) {
 
 async function generateCoupon() {
 
-  console.log("STEP 0 START GENERATE COUPON");
+  console.error("STEP 0 START GENERATE COUPON");
 
   const discount = Math.max(
     5,
@@ -84,12 +84,12 @@ async function generateCoupon() {
   const couponCode = makeCouponCode(discount);
   const validTo = getDatePlusDays(3);
 
-  console.log("STEP 0 DISCOUNT", discount);
-  console.log("STEP 0 COUPON CODE", couponCode);
+  console.error("STEP 0 DISCOUNT", discount);
+  console.error("STEP 0 COUPON CODE", couponCode);
 
   const isRender = !!process.env.RENDER;
 
-  console.log("STEP 1 LAUNCH BROWSER");
+  console.error("STEP 1 LAUNCH BROWSER");
 
   const browser = await chromium.launch({
     headless: isRender ? true : false,
@@ -106,7 +106,7 @@ async function generateCoupon() {
 
   try {
 
-    console.log("STEP 2 OPEN LOGIN", config.HOROSHOP_DOMAIN + "/edit/");
+    console.error("STEP 2 OPEN LOGIN", config.HOROSHOP_DOMAIN + "/edit/");
 
     await page.goto(config.HOROSHOP_DOMAIN + "/edit/", {
       waitUntil: "commit",
@@ -115,7 +115,7 @@ async function generateCoupon() {
 
     await page.waitForTimeout(3000);
 
-    console.log("STEP 3 CHECK LOGIN FORM");
+    console.error("STEP 3 CHECK LOGIN FORM");
 
     const loginInput =
       (await page.getByPlaceholder("Ел. пошта або логін").count())
@@ -129,12 +129,12 @@ async function generateCoupon() {
 
     if (await loginInput.count() && await passwordInput.count()) {
 
-      console.log("STEP 3 LOGIN FORM FOUND");
+      console.error("STEP 3 LOGIN FORM FOUND");
 
       await loginInput.fill(String(config.HOROSHOP_LOGIN));
       await passwordInput.fill(String(config.HOROSHOP_PASSWORD));
 
-      console.log("STEP 3 CLICK LOGIN");
+      console.error("STEP 3 CLICK LOGIN");
 
       const loginButton =
         (await page.getByRole("button", { name: "Увійти" }).count())
@@ -146,7 +146,7 @@ async function generateCoupon() {
       await page.waitForTimeout(7000);
     }
 
-    console.log("STEP 4 OPEN DISCOUNTS", config.HOROSHOP_DOMAIN + "/edit/discounts/codes");
+    console.error("STEP 4 OPEN DISCOUNTS", config.HOROSHOP_DOMAIN + "/edit/discounts/codes");
 
     await page.goto(config.HOROSHOP_DOMAIN + "/edit/discounts/codes", {
       waitUntil: "commit",
@@ -155,33 +155,33 @@ async function generateCoupon() {
 
     await page.waitForTimeout(7000);
 
-    console.log("STEP 5 FIND IFRAME");
+    console.error("STEP 5 FIND IFRAME");
 
     const frameLocator = page.locator("#app iframe").contentFrame();
 
-    console.log("STEP 6 DEBUG CURRENT PAGE");
+    console.error("STEP 6 DEBUG CURRENT PAGE");
 
     try {
-      console.log("DEBUG PAGE URL", page.url());
-      console.log("DEBUG PAGE TITLE", await page.title());
-      console.log("DEBUG PAGE TEXT", (await page.locator("body").innerText({ timeout: 5000 })).slice(0, 3000));
+      console.error("DEBUG PAGE URL", page.url());
+      console.error("DEBUG PAGE TITLE", await page.title());
+      console.error("DEBUG PAGE TEXT", (await page.locator("body").innerText({ timeout: 5000 })).slice(0, 3000));
     } catch (e) {
-      console.log("DEBUG PAGE READ ERROR", String(e && e.message ? e.message : e));
+      console.error("DEBUG PAGE READ ERROR", String(e && e.message ? e.message : e));
     }
 
     try {
-      console.log("DEBUG FRAME TEXT", (await frameLocator.locator("body").innerText({ timeout: 5000 })).slice(0, 3000));
+      console.error("DEBUG FRAME TEXT", (await frameLocator.locator("body").innerText({ timeout: 5000 })).slice(0, 3000));
     } catch (e) {
-      console.log("DEBUG FRAME READ ERROR", String(e && e.message ? e.message : e));
+      console.error("DEBUG FRAME READ ERROR", String(e && e.message ? e.message : e));
     }
 
-    console.log("STEP 6 CLICK ADD COUPON");
+    console.error("STEP 6 CLICK ADD COUPON");
 
     await clickAddCouponButton(frameLocator);
 
     await page.waitForTimeout(3000);
 
-    console.log("STEP 7 SELECT COUPON TYPE");
+    console.error("STEP 7 SELECT COUPON TYPE");
 
     await frameLocator.locator("#coupon-type").selectOption("2");
 
@@ -189,7 +189,7 @@ async function generateCoupon() {
       await frameLocator.locator("#checkbox_param_names4779").check();
     }
 
-    console.log("STEP 8 FILL DISCOUNT AMOUNT");
+    console.error("STEP 8 FILL DISCOUNT AMOUNT");
 
     await frameLocator.locator('input[name="names[amount]"]').fill(String(discount));
 
@@ -197,7 +197,7 @@ async function generateCoupon() {
       await frameLocator.getByRole("checkbox", { name: "Діє на товари зі знижкою" }).check();
     }
 
-    console.log("STEP 9 FILL COUPON CODE IF FIELD EXISTS");
+    console.error("STEP 9 FILL COUPON CODE IF FIELD EXISTS");
 
     if (await frameLocator.locator('input[name="names[code]"]').count()) {
       await frameLocator.locator('input[name="names[code]"]').fill(couponCode);
@@ -207,7 +207,7 @@ async function generateCoupon() {
       await frameLocator.locator('input[name="names[quantity]"]').fill("1");
     }
 
-    console.log("STEP 10 FILL VALID DATE");
+    console.error("STEP 10 FILL VALID DATE");
 
     const dateInputs = [
       'input[name="names[date_end]"]',
@@ -241,7 +241,7 @@ async function generateCoupon() {
       } catch (e) {}
     }
 
-    console.log("STEP 11 SAVE COUPON");
+    console.error("STEP 11 SAVE COUPON");
 
     await frameLocator.getByRole("button", { name: "Зберегти та вийти" }).click();
 
@@ -255,7 +255,7 @@ async function generateCoupon() {
       } catch (e) {}
     }
 
-    console.log("STEP 12 READ FINAL COUPON");
+    console.error("STEP 12 READ FINAL COUPON");
 
     let finalCoupon = couponCode;
 
@@ -277,7 +277,7 @@ async function generateCoupon() {
       }
     } catch (e) {}
 
-    console.log("STEP 13 SUCCESS", finalCoupon);
+    console.error("STEP 13 SUCCESS", finalCoupon);
 
     console.log(JSON.stringify({
       success: true,
@@ -288,7 +288,7 @@ async function generateCoupon() {
 
   } catch (e) {
 
-    console.log("STEP ERROR", String(e && e.message ? e.message : e));
+    console.error("STEP ERROR", String(e && e.message ? e.message : e));
 
     console.log(JSON.stringify({
       success: false,
@@ -301,7 +301,7 @@ async function generateCoupon() {
 
   } finally {
 
-    console.log("STEP FINAL CLOSE BROWSER");
+    console.error("STEP FINAL CLOSE BROWSER");
 
     await browser.close();
 
