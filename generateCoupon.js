@@ -285,8 +285,6 @@ async function generateCoupon() {
 
   } finally {
 
-    console.error("STEP FINAL CLOSE BROWSER");
-
     await browser.close();
 
   }
