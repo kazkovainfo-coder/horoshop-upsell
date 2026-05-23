@@ -3,27 +3,31 @@ const { chromium } = require("playwright");
 async function generateCoupon() {
 
   const browser = await chromium.launch({
-    headless: true
+    headless: false
   });
 
   const page = await browser.newPage();
 
   await page.goto("https://kazkova.in.ua/admin");
 
-  await page.fill('input[type="email"]', process.env.HOROSHOP_EMAIL);
-  await page.fill('input[type="password"]', process.env.HOROSHOP_PASSWORD);
+  await page.waitForTimeout(3000);
 
-  await page.click('button[type="submit"]');
+  const loginInputs = await page.$$("input");
 
-  await page.waitForTimeout(4000);
+  await loginInputs[0].fill(process.env.HOROSHOP_EMAIL);
+  await loginInputs[1].fill(process.env.HOROSHOP_PASSWORD);
+
+  await page.click("text=Увійти");
+
+  await page.waitForTimeout(5000);
 
   await page.goto("https://kazkova.in.ua/edit/discounts/codes");
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(4000);
 
   await page.click("text=Згенерувати сертифікати");
 
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3000);
 
   await page.selectOption("select", {
     label: "Купон на знижку"
@@ -47,7 +51,11 @@ async function generateCoupon() {
 
   await page.click("text=Зберегти");
 
+  await page.waitForTimeout(5000);
+
   console.log("Coupon created");
+
+  await browser.close();
 
 }
 
