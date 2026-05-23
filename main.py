@@ -5,6 +5,8 @@ import json
 import random
 import os
 import subprocess
+import threading
+import time
 
 app = FastAPI()
 
@@ -19,6 +21,9 @@ app.add_middleware(
 PRODUCTS_FILE = "products.json"
 PAIRS_FILE = "purchase_pairs.json"
 COUPON_POOL_FILE = "coupon_pool.json"
+COUPON_REFILL_COOLDOWN_SECONDS = 120
+_coupon_refill_lock = threading.Lock()
+_coupon_refill_last_started = 0
 
 # =====================================================
 # MODELS
@@ -45,6 +50,11 @@ class CouponRequest(BaseModel):
 @app.get("/")
 def home():
     return {"status": "Smart upsell API працює"}
+
+
+@app.on_event("startup")
+def startup_fill_coupon_pool():
+    start_coupon_pool_refill(force=True)
 
 # =====================================================
 # FILE HELPERS
@@ -84,23 +94,64 @@ def save_coupon_pool(pool):
         json.dump(pool, file, ensure_ascii=False, indent=2)
 
 def get_ready_coupon(discount):
-
     pool = load_coupon_pool()
 
     for coupon in pool:
-
         if (
             not coupon.get("used")
             and int(coupon.get("discount", 0)) == int(discount)
+            and coupon.get("coupon")
         ):
-
             coupon["used"] = True
+            coupon["used_at"] = int(time.time() * 1000)
 
             save_coupon_pool(pool)
 
             return coupon
 
     return None
+
+def count_ready_coupons(discount=None):
+    pool = load_coupon_pool()
+
+    count = 0
+
+    for coupon in pool:
+        if coupon.get("used"):
+            continue
+
+        if not coupon.get("coupon"):
+            continue
+
+        if discount is not None and int(coupon.get("discount", 0)) != int(discount):
+            continue
+
+        count += 1
+
+    return count
+
+def start_coupon_pool_refill(force=False):
+    global _coupon_refill_last_started
+
+    now = time.time()
+
+    with _coupon_refill_lock:
+        if not force and now - _coupon_refill_last_started < COUPON_REFILL_COOLDOWN_SECONDS:
+            return False
+
+        _coupon_refill_last_started = now
+
+    try:
+        subprocess.Popen(
+            ["node", "couponPool.js"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+        return True
+    except:
+        return False
+
 
 def product_to_offer(product, source="ai"):
     return {
@@ -429,20 +480,27 @@ def generate_coupon(data: CouponRequest):
 
         coupon = get_ready_coupon(discount)
 
-        if not coupon:
+        # Після видачі купона одразу запускаємо тихе поповнення запасу у фоні
+        start_coupon_pool_refill(force=False)
+
+        if coupon:
 
             return {
-                "success": False,
+                "success": True,
                 "discount": discount,
-                "coupon": "",
-                "error": "Немає готових купонів у pool"
+                "coupon": coupon.get("coupon", ""),
+                "message": "Купон видано з pool"
             }
 
+        # Якщо запас раптом закінчився — запускаємо поповнення і чесно повертаємо помилку.
+        # Frontend може повторити запит трохи пізніше.
+        start_coupon_pool_refill(force=True)
+
         return {
-            "success": True,
+            "success": False,
             "discount": discount,
-            "coupon": coupon.get("coupon", ""),
-            "message": "Купон видано з pool"
+            "coupon": "",
+            "error": "Готових купонів цієї знижки тимчасово немає. Pool поповнюється."
         }
 
     except Exception as e:
@@ -453,6 +511,31 @@ def generate_coupon(data: CouponRequest):
             "coupon": "",
             "error": str(e)
         }
+
+@app.get("/coupon-pool-status")
+def coupon_pool_status():
+    return {
+        "success": True,
+        "available_total": count_ready_coupons(),
+        "available": {
+            "5": count_ready_coupons(5),
+            "6": count_ready_coupons(6),
+            "7": count_ready_coupons(7),
+            "8": count_ready_coupons(8),
+            "9": count_ready_coupons(9),
+            "10": count_ready_coupons(10)
+        }
+    }
+
+@app.post("/coupon-pool-refill")
+def coupon_pool_refill():
+    started = start_coupon_pool_refill(force=True)
+
+    return {
+        "success": True,
+        "started": started,
+        "message": "Поповнення pool запущено"
+    }
 
 # =====================================================
 # DEBUG PAIRS
