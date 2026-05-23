@@ -76,6 +76,7 @@ for item in root.findall(".//item"):
     price = item.find("g:price", namespace)
     product_id = item.find("g:id", namespace)
     availability = item.find("g:availability", namespace)
+    image = item.find("g:image_link", namespace)
 
     if title is None:
         continue
@@ -88,6 +89,7 @@ for item in root.findall(".//item"):
         "type": detect_type(title_text),
         "color": detect_color(title_text),
         "url": link.text if link is not None else "",
+        "image": image.text if image is not None else "",
         "price": price.text if price is not None else "",
         "stock": availability.text == "in stock" if availability is not None else True,
         "priority": 5
