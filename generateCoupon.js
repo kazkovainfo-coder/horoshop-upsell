@@ -82,7 +82,7 @@ async function generateCoupon() {
   );
 
   const couponCode = makeCouponCode(discount);
-  const validTo = getDatePlusDays(3);
+  const validTo = getDatePlusDays(14);
 
   console.error("STEP 0 DISCOUNT", discount);
   console.error("STEP 0 COUPON CODE", couponCode);
