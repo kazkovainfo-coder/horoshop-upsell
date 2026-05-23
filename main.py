@@ -1,379 +1,207 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import json
-import random
-import os
+const { chromium } = require("playwright");
+const fs = require("fs");
 
-app = FastAPI()
+const config = JSON.parse(
+  fs.readFileSync("config.json", "utf8")
+);
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-PRODUCTS_FILE = "products.json"
-PAIRS_FILE = "purchase_pairs.json"
-
-# =====================================================
-# MODELS
-# =====================================================
-
-class CartItem(BaseModel):
-    product_id: str
-    title: str
-    category: str = ""
-
-class CartRequest(BaseModel):
-    cart_items: list[CartItem]
-
-class PurchaseRequest(BaseModel):
-    cart_items: list[CartItem]
-
-# =====================================================
-# HOME
-# =====================================================
-
-@app.get("/")
-def home():
-    return {"status": "Smart upsell API працює"}
-
-# =====================================================
-# FILE HELPERS
-# =====================================================
-
-def load_products():
-    with open(PRODUCTS_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
-
-def load_pairs():
-    if not os.path.exists(PAIRS_FILE):
-        return {}
-
-    try:
-        with open(PAIRS_FILE, "r", encoding="utf-8") as file:
-            return json.load(file)
-    except:
-        return {}
-
-def save_pairs(pairs):
-    with open(PAIRS_FILE, "w", encoding="utf-8") as file:
-        json.dump(pairs, file, ensure_ascii=False, indent=2)
-
-def product_to_offer(product, source="ai"):
-    return {
-        "product_id": product["id"],
-        "title": product["title"],
-        "url": product["url"],
-        "image": product.get("image", ""),
-        "price": product["price"],
-        "source": source
-    }
-
-# =====================================================
-# DETECT PRODUCT TYPE
-# =====================================================
-
-def detect_product_type(title):
-
-    title = title.lower()
-
-    if "пеньюар" in title:
-        return "peniuar"
-
-    if "корсет" in title:
-        return "corset"
-
-    if "трус" in title:
-        return "panties"
-
-    if "панчох" in title:
-        return "stockings"
-
-    if "боді" in title:
-        return "body"
-
-    if "бодістокінг" in title:
-        return "body"
-
-    return "unknown"
-
-# =====================================================
-# DETECT COLOR
-# =====================================================
-
-def detect_color(title):
-
-    title = title.lower()
-
-    colors = {
-        "чор": "black",
-        "біли": "white",
-        "червон": "red",
-        "рожев": "pink",
-        "беж": "beige",
-        "син": "blue",
-        "фіолет": "purple",
-        "зел": "green"
-    }
-
-    for key, value in colors.items():
-        if key in title:
-            return value
-
-    return "unknown"
-
-# =====================================================
-# COMPATIBILITY RULES
-# =====================================================
-
-COMPATIBILITY_RULES = {
-    "peniuar": ["stockings", "panties", "body"],
-    "corset": ["panties", "stockings"],
-    "panties": ["corset", "body"],
-    "stockings": ["peniuar", "body"],
-    "body": ["stockings", "panties"]
+if (!config.HOROSHOP_DOMAIN || !config.HOROSHOP_LOGIN || !config.HOROSHOP_PASSWORD) {
+  console.log(JSON.stringify({
+    success: false,
+    coupon: "",
+    discount: 0,
+    error: "У config.json мають бути HOROSHOP_DOMAIN, HOROSHOP_LOGIN, HOROSHOP_PASSWORD"
+  }));
+  process.exit(1);
 }
 
-# =====================================================
-# SCORE PRODUCT
-# =====================================================
+config.HOROSHOP_DOMAIN = String(config.HOROSHOP_DOMAIN).replace(/\/$/, "");
 
-def score_product(product, main_product, cart_ids):
+function makeCouponCode(discount) {
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return "KAZ" + discount + random;
+}
 
-    score = 0
+function getDatePlusDays(days) {
+  const date = new Date();
 
-    # stock
-    if not product.get("stock"):
-        return -999
+  date.setDate(date.getDate() + days);
 
-    # duplicate
-    if product["id"] in cart_ids:
-        return -999
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
 
-    # type compatibility
-    if product["type"] == main_product["type"]:
-        return -999
+  return {
+    yyyy,
+    mm,
+    dd,
+    iso: `${yyyy}-${mm}-${dd}`,
+    ua: `${dd}.${mm}.${yyyy}`
+  };
+}
 
-    compatible = COMPATIBILITY_RULES.get(
-        main_product["type"],
-        []
+async function generateCoupon() {
+
+  const discount = Math.max(
+    5,
+    Math.min(
+      10,
+      parseInt(process.argv[2] || process.env.COUPON_DISCOUNT || "10", 10)
     )
+  );
 
-    if product["type"] in compatible:
-        score += 50
+  const couponCode = makeCouponCode(discount);
+  const validTo = getDatePlusDays(3);
 
-    # color matching
-    if product.get("color") == main_product.get("color"):
-        score += 30
+  const browser = await chromium.launch({
+    headless: false,
+    slowMo: 700
+  });
 
-    # priority
-    score += product.get("priority", 0)
+  const page = await browser.newPage({
+    viewport: {
+      width: 1440,
+      height: 900
+    }
+  });
 
-    # expensive products lower priority
-    try:
-        price = int(str(product["price"]).split()[0])
+  try {
 
-        if price < 500:
-            score += 10
+    await page.goto(config.HOROSHOP_DOMAIN + "/edit/", {
+      waitUntil: "domcontentloaded"
+    });
 
-    except:
-        pass
+    await page.waitForTimeout(3000);
 
-    # randomization
-    score += random.randint(1, 15)
+    if (await page.getByPlaceholder("Ел. пошта або логін").count()) {
 
-    return score
+      await page.getByPlaceholder("Ел. пошта або логін").fill(String(config.HOROSHOP_LOGIN));
+      await page.getByPlaceholder("Пароль").fill(String(config.HOROSHOP_PASSWORD));
 
-# =====================================================
-# REAL PURCHASE RECOMMENDATION
-# =====================================================
+      await page.getByRole("button", { name: "Увійти" }).click();
 
-def find_real_pair_offer(main_product_id, cart_ids, products):
-
-    pairs = load_pairs()
-
-    if main_product_id not in pairs:
-        return None
-
-    product_by_id = {
-        str(product["id"]): product
-        for product in products
+      await page.waitForTimeout(7000);
     }
 
-    related = pairs.get(main_product_id, {})
+    await page.goto(config.HOROSHOP_DOMAIN + "/edit/discounts/codes", {
+      waitUntil: "domcontentloaded"
+    });
 
-    sorted_related = sorted(
-        related.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
+    await page.waitForTimeout(7000);
 
-    for related_id, count in sorted_related:
+    const frameLocator = page.locator("#app iframe").contentFrame();
 
-        if related_id in cart_ids:
-            continue
+    await frameLocator.getByRole("link", { name: "Додати" }).click();
 
-        product = product_by_id.get(str(related_id))
+    await page.waitForTimeout(3000);
 
-        if not product:
-            continue
+    await frameLocator.locator("#coupon-type").selectOption("2");
 
-        if not product.get("stock"):
-            continue
-
-        offer = product_to_offer(product, source="real_purchases")
-        offer["pair_count"] = count
-
-        return offer
-
-    return None
-
-# =====================================================
-# AI FALLBACK RECOMMENDATION
-# =====================================================
-
-def find_ai_offer(data, products):
-
-    cart_ids = [
-        item.product_id
-        for item in data.cart_items
-    ]
-
-    main_item = data.cart_items[0]
-
-    main_product = {
-        "id": main_item.product_id,
-        "title": main_item.title,
-        "type": detect_product_type(main_item.title),
-        "color": detect_color(main_item.title)
+    if (await frameLocator.locator("#checkbox_param_names4779").count()) {
+      await frameLocator.locator("#checkbox_param_names4779").check();
     }
 
-    scored_products = []
+    await frameLocator.locator('input[name="names[amount]"]').fill(String(discount));
 
-    for product in products:
-
-        product_score = score_product(
-            product,
-            main_product,
-            cart_ids
-        )
-
-        if product_score > 0:
-
-            product_copy = product.copy()
-            product_copy["score"] = product_score
-
-            scored_products.append(product_copy)
-
-    if not scored_products:
-        return None
-
-    scored_products = sorted(
-        scored_products,
-        key=lambda x: x["score"],
-        reverse=True
-    )
-
-    best_offer = scored_products[0]
-
-    offer = product_to_offer(best_offer, source="ai_fallback")
-    offer["score"] = best_offer["score"]
-
-    return offer
-
-# =====================================================
-# API RECOMMEND
-# =====================================================
-
-@app.post("/recommend")
-def recommend(data: CartRequest):
-
-    products = load_products()
-
-    if not data.cart_items:
-        return {"offer": None}
-
-    cart_ids = [
-        item.product_id
-        for item in data.cart_items
-    ]
-
-    main_item = data.cart_items[0]
-
-    real_offer = find_real_pair_offer(
-        main_item.product_id,
-        cart_ids,
-        products
-    )
-
-    if real_offer:
-        return {
-            "offer": real_offer,
-            "message": "З цим товаром часто купують"
-        }
-
-    ai_offer = find_ai_offer(data, products)
-
-    if ai_offer:
-        return {
-            "offer": ai_offer,
-            "message": "З цим товаром часто купують"
-        }
-
-    return {"offer": None}
-
-# =====================================================
-# TRACK PURCHASE PAIRS
-# =====================================================
-
-@app.post("/track-purchase")
-def track_purchase(data: PurchaseRequest):
-
-    if len(data.cart_items) < 2:
-        return {
-            "success": True,
-            "message": "Недостатньо товарів для запису пари"
-        }
-
-    pairs = load_pairs()
-
-    ids = [
-        item.product_id
-        for item in data.cart_items
-        if item.product_id
-    ]
-
-    for main_id in ids:
-
-        if main_id not in pairs:
-            pairs[main_id] = {}
-
-        for related_id in ids:
-
-            if related_id == main_id:
-                continue
-
-            if related_id not in pairs[main_id]:
-                pairs[main_id][related_id] = 0
-
-            pairs[main_id][related_id] += 1
-
-    save_pairs(pairs)
-
-    return {
-        "success": True,
-        "message": "Пари товарів збережені",
-        "items_count": len(ids)
+    if (await frameLocator.getByRole("checkbox", { name: "Діє на товари зі знижкою" }).count()) {
+      await frameLocator.getByRole("checkbox", { name: "Діє на товари зі знижкою" }).check();
     }
 
-# =====================================================
-# DEBUG PAIRS
-# =====================================================
+    if (await frameLocator.locator('input[name="names[code]"]').count()) {
+      await frameLocator.locator('input[name="names[code]"]').fill(couponCode);
+    }
 
-@app.get("/purchase-pairs")
-def purchase_pairs():
-    return load_pairs()
+    if (await frameLocator.locator('input[name="names[quantity]"]').count()) {
+      await frameLocator.locator('input[name="names[quantity]"]').fill("1");
+    }
+
+    const dateInputs = [
+      'input[name="names[date_end]"]',
+      'input[name="names[date_to]"]',
+      'input[name="names[valid_to]"]',
+      'input[name*="date"]'
+    ];
+
+    let dateFilled = false;
+
+    for (const selector of dateInputs) {
+      if (await frameLocator.locator(selector).count()) {
+        try {
+          await frameLocator.locator(selector).first().fill(validTo.iso);
+          dateFilled = true;
+          break;
+        } catch (e) {}
+
+        try {
+          await frameLocator.locator(selector).first().fill(validTo.ua);
+          dateFilled = true;
+          break;
+        } catch (e) {}
+      }
+    }
+
+    if (!dateFilled) {
+      try {
+        await frameLocator.getByRole("cell", { name: new RegExp(validTo.iso) }).locator("img").click();
+        await frameLocator.getByRole("link", { name: String(validTo.dd) }).click();
+      } catch (e) {}
+    }
+
+    await frameLocator.getByRole("button", { name: "Зберегти та вийти" }).click();
+
+    await page.waitForTimeout(6000);
+
+    if (await frameLocator.locator('input[name="names[code]"]').count()) {
+      try {
+        await frameLocator.locator('input[name="names[code]"]').fill(couponCode);
+        await frameLocator.getByRole("link", { name: "Зберегти та вийти" }).click();
+        await page.waitForTimeout(4000);
+      } catch (e) {}
+    }
+
+    let finalCoupon = couponCode;
+
+    try {
+      await page.waitForTimeout(3000);
+
+      if (await frameLocator.locator("a.control_edit").count()) {
+        await frameLocator.locator("a.control_edit").first().click();
+
+        await page.waitForTimeout(3000);
+
+        if (await frameLocator.locator('input[name="names[code]"]').count()) {
+          const realCoupon = await frameLocator.locator('input[name="names[code]"]').inputValue();
+
+          if (realCoupon) {
+            finalCoupon = realCoupon;
+          }
+        }
+      }
+    } catch (e) {}
+
+    console.log(JSON.stringify({
+      success: true,
+      coupon: finalCoupon,
+      discount: discount,
+      valid_to: validTo.iso
+    }));
+
+  } catch (e) {
+
+    console.log(JSON.stringify({
+      success: false,
+      coupon: "",
+      discount: discount,
+      error: String(e && e.message ? e.message : e)
+    }));
+
+    process.exitCode = 1;
+
+  } finally {
+
+    await browser.close();
+
+  }
+}
+
+generateCoupon();
