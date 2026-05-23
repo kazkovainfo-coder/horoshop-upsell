@@ -9,6 +9,7 @@ const DISCOUNTS = [5, 6, 7, 8, 9, 10];
 
 const MIN_PER_DISCOUNT = Number(process.env.COUPON_POOL_MIN_PER_DISCOUNT || 3);
 const TARGET_PER_DISCOUNT = Number(process.env.COUPON_POOL_TARGET_PER_DISCOUNT || 7);
+const COUPON_EXPIRE_DAYS = Number(process.env.COUPON_EXPIRE_DAYS || 14);
 
 function readPool() {
   try {
@@ -28,6 +29,20 @@ function savePool(pool) {
     JSON.stringify(pool, null, 2),
     "utf8"
   );
+}
+
+function removeExpiredCoupons(pool) {
+  const now = Date.now();
+
+  return pool.filter(item => {
+    if (!item.created_at) return true;
+
+    const ageDays =
+      (now - Number(item.created_at)) /
+      (1000 * 60 * 60 * 24);
+
+    return ageDays <= COUPON_EXPIRE_DAYS;
+  });
 }
 
 function availableByDiscount(pool, discount) {
@@ -111,7 +126,8 @@ function generateCoupon(discount) {
             coupon: data.coupon,
             discount: Number(discount),
             used: false,
-            created_at: Date.now()
+            created_at: Date.now(),
+            expires_at: Date.now() + COUPON_EXPIRE_DAYS * 24 * 60 * 60 * 1000
           });
           return;
         }
@@ -140,6 +156,9 @@ async function fillPool() {
   try {
     let pool = readPool();
 
+    pool = removeExpiredCoupons(pool);
+    savePool(pool);
+
     for (const discount of DISCOUNTS) {
       const available = availableByDiscount(pool, discount);
 
@@ -158,6 +177,7 @@ async function fillPool() {
           const coupon = await generateCoupon(discount);
 
           pool = readPool();
+          pool = removeExpiredCoupons(pool);
           pool.push(coupon);
           savePool(pool);
 
