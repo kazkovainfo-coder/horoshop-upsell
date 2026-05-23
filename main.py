@@ -18,6 +18,7 @@ app.add_middleware(
 
 PRODUCTS_FILE = "products.json"
 PAIRS_FILE = "purchase_pairs.json"
+COUPON_POOL_FILE = "coupon_pool.json"
 
 # =====================================================
 # MODELS
@@ -66,6 +67,40 @@ def load_pairs():
 def save_pairs(pairs):
     with open(PAIRS_FILE, "w", encoding="utf-8") as file:
         json.dump(pairs, file, ensure_ascii=False, indent=2)
+
+
+def load_coupon_pool():
+    if not os.path.exists(COUPON_POOL_FILE):
+        return []
+
+    try:
+        with open(COUPON_POOL_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except:
+        return []
+
+def save_coupon_pool(pool):
+    with open(COUPON_POOL_FILE, "w", encoding="utf-8") as file:
+        json.dump(pool, file, ensure_ascii=False, indent=2)
+
+def get_ready_coupon(discount):
+
+    pool = load_coupon_pool()
+
+    for coupon in pool:
+
+        if (
+            not coupon.get("used")
+            and int(coupon.get("discount", 0)) == int(discount)
+        ):
+
+            coupon["used"] = True
+
+            save_coupon_pool(pool)
+
+            return coupon
+
+    return None
 
 def product_to_offer(product, source="ai"):
     return {
@@ -392,42 +427,23 @@ def generate_coupon(data: CouponRequest):
 
     try:
 
-        result = subprocess.run(
-            ["node", "generateCoupon.js", str(discount)],
-            capture_output=True,
-            text=True,
-            timeout=90
-        )
+        coupon = get_ready_coupon(discount)
 
-        output = (result.stdout or "").strip()
-        error = (result.stderr or "").strip()
+        if not coupon:
 
-        if result.returncode != 0:
             return {
                 "success": False,
                 "discount": discount,
                 "coupon": "",
-                "error": error or output or "Помилка створення купона"
+                "error": "Немає готових купонів у pool"
             }
 
-        try:
-            parsed = json.loads(output.splitlines()[-1])
-
-            return {
-                "success": True,
-                "discount": discount,
-                "coupon": parsed.get("coupon", ""),
-                "message": "Купон створено"
-            }
-
-        except:
-
-            return {
-                "success": True,
-                "discount": discount,
-                "coupon": output,
-                "message": "Купон створено"
-            }
+        return {
+            "success": True,
+            "discount": discount,
+            "coupon": coupon.get("coupon", ""),
+            "message": "Купон видано з pool"
+        }
 
     except Exception as e:
 
