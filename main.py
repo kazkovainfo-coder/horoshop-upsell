@@ -68,6 +68,7 @@ def product_to_offer(product, source="ai"):
         "product_id": product["id"],
         "title": product["title"],
         "url": product["url"],
+        "image": product.get("image", ""),
         "price": product["price"],
         "source": source
     }
