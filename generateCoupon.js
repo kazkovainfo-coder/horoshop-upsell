@@ -58,54 +58,42 @@ function getDatePlusDays(days) {
   };
 }
 
-async function clickAddCouponButton(frameLocator) {
+async function clickAddCouponButton(page, frameLocator) {
+  const scopes = [frameLocator, page];
 
-  const selectors = [
-    'a.button.add.plus',
-    'a[href*="id=addnew"]',
-    'a[href*="addnew"]'
-  ];
+  for (const scope of scopes) {
+    const selectors = [
+      'a.button.add.plus',
+      'a:has-text("Додати")',
+      'button:has-text("Додати")',
+      'a:has-text("Добавить")',
+      'button:has-text("Добавить")',
+      'a:has-text("Add")',
+      'button:has-text("Add")',
+      'a[href*="id=addnew"]',
+      'a[href*="addnew"]',
+      '[href*="create"]',
+      '[href*="add"]',
+      '.btn-primary',
+      '.btn-success',
+      '.btn'
+    ];
 
-  for (const selector of selectors) {
-    try {
+    for (const selector of selectors) {
+      try {
+        const button = scope.locator(selector).first();
 
-      const button = frameLocator.locator(selector).first();
-
-      if (await button.count()) {
-
-        await button.waitFor({
-          state: "visible",
-          timeout: 5000
-        });
-
-        await button.click();
-
-        return;
-      }
-
-    } catch (e) {}
+        if (await button.count()) {
+          await button.click({
+            timeout: 60000
+          });
+          return true;
+        }
+      } catch (e) {}
+    }
   }
 
-  try {
-
-    const textButton =
-      frameLocator.getByRole("link", { name: /Додати/i }).first();
-
-    if (await textButton.count()) {
-
-      await textButton.waitFor({
-        state: "visible",
-        timeout: 5000
-      });
-
-      await textButton.click();
-
-      return;
-    }
-
-  } catch (e) {}
-
-  throw new Error("ADD COUPON BUTTON NOT FOUND");
+  throw new Error("Не знайдено кнопку/посилання 'Додати' для створення купона");
 }
 
 async function generateCoupon() {
@@ -152,7 +140,7 @@ async function generateCoupon() {
       timeout: 90000
     });
 
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(3000);
 
     console.error("STEP 3 CHECK LOGIN FORM");
 
@@ -182,7 +170,7 @@ async function generateCoupon() {
 
       await loginButton.click();
 
-      await page.waitForTimeout(3500);
+      await page.waitForTimeout(7000);
     }
 
     console.error("STEP 4 OPEN DISCOUNTS", config.HOROSHOP_DOMAIN + "/edit/discounts/codes");
@@ -192,7 +180,7 @@ async function generateCoupon() {
       timeout: 90000
     });
 
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(7000);
 
     console.error("STEP 5 FIND IFRAME");
 
@@ -200,9 +188,9 @@ async function generateCoupon() {
 
     console.error("STEP 6 CLICK ADD COUPON");
 
-    await clickAddCouponButton(frameLocator);
+    await clickAddCouponButton(page, frameLocator);
 
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(3000);
 
     console.error("STEP 7 SELECT COUPON TYPE");
 
@@ -268,13 +256,13 @@ async function generateCoupon() {
 
     await frameLocator.getByRole("button", { name: "Зберегти та вийти" }).click();
 
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(6000);
 
     if (await frameLocator.locator('input[name="names[code]"]').count()) {
       try {
         await frameLocator.locator('input[name="names[code]"]').fill(couponCode);
         await frameLocator.getByRole("link", { name: "Зберегти та вийти" }).click();
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(4000);
       } catch (e) {}
     }
 
@@ -283,12 +271,12 @@ async function generateCoupon() {
     let finalCoupon = couponCode;
 
     try {
-      await page.waitForTimeout(1200);
+      await page.waitForTimeout(3000);
 
       if (await frameLocator.locator("a.control_edit").count()) {
         await frameLocator.locator("a.control_edit").first().click();
 
-        await page.waitForTimeout(1200);
+        await page.waitForTimeout(3000);
 
         if (await frameLocator.locator('input[name="names[code]"]').count()) {
           const realCoupon = await frameLocator.locator('input[name="names[code]"]').inputValue();
