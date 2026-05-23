@@ -71,9 +71,12 @@ async function generateCoupon() {
   const couponCode = makeCouponCode(discount);
   const validTo = getDatePlusDays(3);
 
+  const isRender = !!process.env.RENDER;
+
   const browser = await chromium.launch({
-    headless: false,
-    slowMo: 700
+    headless: isRender ? true : false,
+    slowMo: isRender ? 0 : 700,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
 
   const page = await browser.newPage({
