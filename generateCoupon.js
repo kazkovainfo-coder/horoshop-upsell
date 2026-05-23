@@ -59,14 +59,53 @@ function getDatePlusDays(days) {
 }
 
 async function clickAddCouponButton(frameLocator) {
-  const addButton = frameLocator.locator('a.button.add.plus').first();
 
-  await addButton.waitFor({
-    state: "visible",
-    timeout: 30000
-  });
+  const selectors = [
+    'a.button.add.plus',
+    'a[href*="id=addnew"]',
+    'a[href*="addnew"]'
+  ];
 
-  await addButton.click();
+  for (const selector of selectors) {
+    try {
+
+      const button = frameLocator.locator(selector).first();
+
+      if (await button.count()) {
+
+        await button.waitFor({
+          state: "visible",
+          timeout: 5000
+        });
+
+        await button.click();
+
+        return;
+      }
+
+    } catch (e) {}
+  }
+
+  try {
+
+    const textButton =
+      frameLocator.getByRole("link", { name: /Додати/i }).first();
+
+    if (await textButton.count()) {
+
+      await textButton.waitFor({
+        state: "visible",
+        timeout: 5000
+      });
+
+      await textButton.click();
+
+      return;
+    }
+
+  } catch (e) {}
+
+  throw new Error("ADD COUPON BUTTON NOT FOUND");
 }
 
 async function generateCoupon() {
