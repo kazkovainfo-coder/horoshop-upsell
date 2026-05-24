@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "coupon": "KAZ5",
+    "discount": 5
+  },
+  {
+    "coupon": "KAZ6",
+    "discount": 6
+  },
+  {
+    "coupon": "KAZ7",
+    "discount": 7
+  },
+  {
+    "coupon": "KAZ8",
+    "discount": 8
+  },
+  {
+    "coupon": "KAZ9",
+    "discount": 9
+  },
+  {
+    "coupon": "KAZ10",
+    "discount": 10
+  }
+]
